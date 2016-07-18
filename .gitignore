@@ -1,0 +1,7 @@
+/build
+/notes
+/sample_data
+/thirdparty
+/src/credentials
+*.pyc
+.DS_Store
