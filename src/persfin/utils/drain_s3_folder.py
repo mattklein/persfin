@@ -12,7 +12,8 @@ from persfin.core import process_email_msg_in_s3
 def drain_s3_folder(folder_name):
     s3_conn = boto.connect_s3(s3_full.ACCESS_KEY_ID, s3_full.SECRET_ACCESS_KEY)
     bucket = s3_conn.get_bucket(S3_BUCKET_NAME)
-    s3_keys = [k for k in bucket.list(prefix='%s/' % folder_name)]
+    s3_keys = [k for k in bucket.list(prefix='%s/' % folder_name)
+              if k.key != '%s/' % folder_name]  # The folder itself shows up as a "file", with nothing after the slash
     logging.info('Found %d files in the %s folder', len(s3_keys), folder_name)
     successes, failures = 0, 0
     for s3_key in sorted(s3_keys, key=lambda x: x.last_modified):

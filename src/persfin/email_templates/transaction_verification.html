@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+<body>
+<p>We received a transaction:</p>
+<table>
+<tr><td><strong>Account</strong></td><td>{{ account }}</td></tr>
+<tr><td><strong>Date</strong></td><td>{{ date }}</td></tr>
+<tr><td><strong>Merchant</strong></td><td>{{ merchant }}</td></tr>
+<tr><td><strong>Amount</strong></td><td>{{ amount }}</td></tr>
+</table>
+<form method="POST" action="{{ post_url }}">
+<p>Can you verify this transaction?</p>
+<p><label><input type="radio" name="verified" value="Yes"/>Yes</label></p>
+<p><label><input type="radio" name="verified" value="No"/>No, forward it to:</label></p>
+<select size=1 name="forward-to">
+    <option value="0" selected="selected"/>
+    {% for user in possible_other_verifiers %}
+    <option value="{{ user.id }}">{{ user.name }}</option>
+    {% endfor %}
+</select>
+<p>Who (apparently) made this transaction?</p>
+<select size=1 name="initiated-by">
+    <option value="0" selected="selected"/>
+    {% for user in possible_attributed_tos %}
+    <option value="{{ user.id }}">{{ user.name }}</option>
+    {% endfor %}
+</select>
+<p><strong>You are: </strong>{{ verifier.name }}</p>
+<p><input type="submit" value="Submit"/></p>
+</form>
+</body>
+</html>

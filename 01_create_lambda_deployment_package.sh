@@ -39,6 +39,12 @@ type3() {
 add_packages_from_virtualenv() {
     echo "Adding packages from virtualenv"
     type1 lib boto-2.38.0-py2.7.egg boto
+    type2 lib jinja2
+    type2 lib markupsafe
+    # It seems to be working to grab SQLAchemy's .egg as built on MacOS and use it on Lambda's Linux.
+    # If it turns out not to be working, the solution is to build SQLAlchemy's .egg (via setup.py install)
+    # on an Amazon Linux machine, then put that .egg into the .zip for Lambda.
+    type1 lib SQLAlchemy-0.9.2-py2.7-macosx-10.10-intel.egg sqlalchemy
 }
 
 add_thirdparty_packages() {
