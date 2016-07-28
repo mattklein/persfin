@@ -123,6 +123,7 @@ def _send_verification_email(verifier, account_name, date, amount, merchant,
         'verifier': verifier,
         'possible_attributed_tos': possible_attributed_tos,
         'possible_other_verifiers': possible_other_verifiers,
+        'default_attributed_to': verifier,
     })
 
     msg = MIMEMultipart('alternative')

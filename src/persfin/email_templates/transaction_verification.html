@@ -13,7 +13,7 @@
 </table>
 <form method="POST" action="{{ post_url }}">
 <p>Can you verify this transaction?</p>
-<p><label><input type="radio" name="verified" value="Yes"/>Yes</label></p>
+<p><label><input type="radio" name="verified" value="Yes" checked="checked"/>Yes</label></p>
 <p><label><input type="radio" name="verified" value="No"/>No, forward it to:</label></p>
 <select size=1 name="forward-to">
     <option value="0" selected="selected"/>
@@ -23,9 +23,9 @@
 </select>
 <p>Who (apparently) made this transaction?</p>
 <select size=1 name="initiated-by">
-    <option value="0" selected="selected"/>
+    <option value="0"/>
     {% for user in possible_attributed_tos %}
-    <option value="{{ user.id }}">{{ user.name }}</option>
+    <option value="{{ user.id }}"{% if default_attributed_to.id == user.id %} selected="selected"{% endif %}>{{ user.name }}</option>
     {% endfor %}
 </select>
 <p><strong>You are: </strong>{{ verifier.name }}</p>
