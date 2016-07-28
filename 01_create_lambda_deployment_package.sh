@@ -45,7 +45,7 @@ add_packages_from_virtualenv() {
     # jinja2 and its dependencies
     type2 lib jinja2
     type2 lib markupsafe
-    type1 lib distribute-0.6.28-py2.7.egg
+    type1 lib distribute-0.6.28-py2.7.egg pkg_resources.py
 
     # It seems to be working to grab SQLAchemy's .egg as built on MacOS and use it on Lambda's Linux.
     # If it turns out not to be working, the solution is to build SQLAlchemy's .egg (via setup.py install)
