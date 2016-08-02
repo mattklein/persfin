@@ -1,6 +1,6 @@
 import logging
 
-from persfin.core import process_email_msg_in_s3
+from persfin.core.transaction_ingest import process_email_msg_in_s3
 
 
 def lambda_handler(event, context):

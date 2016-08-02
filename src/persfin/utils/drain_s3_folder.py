@@ -6,7 +6,7 @@ import boto
 
 from credentials import s3_full
 from persfin import S3_BUCKET_NAME
-from persfin.core import process_email_msg_in_s3
+from persfin.core.transaction_ingest import process_email_msg_in_s3
 
 
 def drain_s3_folder(folder_name):

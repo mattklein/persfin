@@ -22,7 +22,8 @@ CREATE TABLE transaction (
     is_verified BOOLEAN,
     verified_by INTEGER REFERENCES persfin_user(id),
     verified_date TIMESTAMP WITH TIME ZONE,
-    is_cleared BOOLEAN
+    is_cleared BOOLEAN,
+    attributed_to INTEGER REFERENCES persfin_user(id)
 );
 
 CREATE TABLE persfin_user (
