@@ -111,6 +111,7 @@ def process_email_msg_in_s3(source_folder, message_id):
 
         logging.info('Moving S3 file into "processed" folder')
         s3_obj.copy(S3_BUCKET_NAME, 'processed/%s' % message_id)
+        # TODO set content type to "text/plain"
         s3_obj.delete()
 
         db_trans.commit()
