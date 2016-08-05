@@ -11,17 +11,23 @@
 <tr><td><strong>Merchant</strong></td><td>{{ merchant }}</td></tr>
 <tr><td><strong>Amount</strong></td><td>{{ amount }}</td></tr>
 </table>
-<form method="POST" action="{{ post_url }}">
+<!-- Strangely, on iOS (using the Mail app or the Gmail app) this POST form seems to get submitted to the server a GET request?! -->
+<!-- And, when it is, we seem to lose what should be the POST body parameters - they aren't put into the GET request as query parms -->
+<!-- Seems to be the same issue documented here: -->
+<!-- http://stackoverflow.com/questions/24765042/gas-ios-mail-app-embedded-html-forms-method-converted-from-post-to-get -->
+<!-- So my workaround is for this form to be a GET rather than a POST, which offends my HTTP/REST sensibilities but seems necessary -->
+<!-- <form method="POST" action="{{ post_url }}"> -->
+<form method="GET" action="{{ post_url }}">
 <input type="hidden" name="verif-attempt-id" value="{{ verif_attempt_id }}"/>
 <p>Can you verify this transaction?</p>
 <p><label><input type="radio" name="verified" value="Yes" checked="checked"/>Yes</label></p>
-<p><label><input type="radio" name="verified" value="No"/>No, forward it to:</label></p>
+<p><label><input type="radio" name="verified" value="No"/>No, forward it to:</label>
 <select size=1 name="forward-to">
     <option value="0" selected="selected"/>
     {% for user in possible_other_verifiers %}
     <option value="{{ user.id }}">{{ user.name }}</option>
     {% endfor %}
-</select>
+</select></p>
 <p>Who (apparently) made this transaction?</p>
 <select size=1 name="attributed-to">
     <option value="0"/>
