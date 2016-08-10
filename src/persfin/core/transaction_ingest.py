@@ -5,12 +5,12 @@ import logging
 import re
 
 import boto
-from sqlalchemy import select
 
 from credentials import s3_full
 from persfin import S3_BUCKET_NAME
+from persfin.core import get_account_for_transaction, get_user_by_username
 from persfin.core.transaction_verification import derive_and_store_verification_attempt, send_verification_email
-from persfin.db import engine, account_tbl, transaction_tbl
+from persfin.db import engine, transaction_tbl
 
 
 def _fetch_email_from_s3_and_parse(s3_obj):
@@ -84,11 +84,7 @@ def process_email_msg_in_s3(source_folder, message_id):
         db_conn = engine.connect()
         db_trans = db_conn.begin()
 
-        # For now, always use Discover as the account
-        s = select(['id', 'name']).select_from(account_tbl).where(account_tbl.c.name == 'Discover')
-        rs = db_conn.execute(s)
-        assert rs.rowcount == 1
-        account = rs.fetchone()
+        account = get_account_for_transaction(db_conn)
 
         new_trans_id = _store_transaction_into_db(db_conn,
                                                   parsed_email_dict['merchant_parsed'],
@@ -97,11 +93,13 @@ def process_email_msg_in_s3(source_folder, message_id):
                                                   message_id,
                                                   account)
 
-        verification_dict = derive_and_store_verification_attempt(db_conn, new_trans_id)
+        # The user who will be the initial verifier for this transaction -- for now, always me
+        initial_verifier = get_user_by_username(db_conn, 'Matt')
+        verification_dict = derive_and_store_verification_attempt(db_conn, new_trans_id, initial_verifier.id)
 
         send_verification_email(
             verification_dict['verif_attempt_id'],
-            verification_dict['initial_verifier'],
+            initial_verifier,
             account.name,
             parsed_email_dict['date_parsed'],
             parsed_email_dict['amount_parsed'],
@@ -110,8 +108,7 @@ def process_email_msg_in_s3(source_folder, message_id):
             verification_dict['possible_other_verifiers'])
 
         logging.info('Moving S3 file into "processed" folder')
-        s3_obj.copy(S3_BUCKET_NAME, 'processed/%s' % message_id)
-        # TODO set content type to "text/plain"
+        s3_obj.copy(S3_BUCKET_NAME, 'processed/%s' % message_id, metadata={'Content-Type': 'text/plain'})
         s3_obj.delete()
 
         db_trans.commit()
@@ -120,7 +117,6 @@ def process_email_msg_in_s3(source_folder, message_id):
         if s3_obj:
             if source_folder != 'failed':  # If it's already in failed, just leave it there!  Don't delete it!
                 logging.info('Moving S3 file into "failed" folder')
-                s3_obj.copy(S3_BUCKET_NAME, 'failed/%s' % message_id)
-                # TODO set content type to "text/plain"
+                s3_obj.copy(S3_BUCKET_NAME, 'failed/%s' % message_id, metadata={'Content-Type': 'text/plain'})
                 s3_obj.delete()
         raise

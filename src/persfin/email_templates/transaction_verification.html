@@ -28,6 +28,7 @@
     <option value="{{ user.id }}">{{ user.name }}</option>
     {% endfor %}
 </select></p>
+<!-- Not using the "attributed to" functionality for now - it might be more confusing/burdensome that it's worth
 <p>Who (apparently) made this transaction?</p>
 <select size=1 name="attributed-to">
     <option value="0"/>
@@ -35,6 +36,7 @@
     <option value="{{ user.id }}"{% if default_attributed_to.id == user.id %} selected="selected"{% endif %}>{{ user.name }}</option>
     {% endfor %}
 </select>
+-->
 <p><strong>You are: </strong>{{ verifier.name }}</p>
 <p><input type="submit" value="Submit"/></p>
 </form>

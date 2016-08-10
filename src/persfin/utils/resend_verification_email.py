@@ -3,7 +3,8 @@ import sys
 
 from sqlalchemy import select
 
-from persfin.core.transaction_verification import send_verification_email, get_initial_verifier, get_possible_attributed_to_users, get_possible_forward_to_users
+from persfin.core import get_user_by_id
+from persfin.core.transaction_verification import send_verification_email, get_possible_attributed_to_users, get_possible_forward_to_users
 from persfin.db import engine, verification_attempt_tbl, transaction_tbl, account_tbl
 
 
@@ -26,13 +27,13 @@ def resend_verification_email(verif_attempt_id):
     assert rs.rowcount == 1
     dbrow = rs.fetchone()
 
-    initial_verifier = get_initial_verifier(db_conn)
+    verifier = get_user_by_id(db_conn, dbrow['asked_of'])
     possible_attributed_tos = get_possible_attributed_to_users(db_conn)
-    possible_other_verifiers = get_possible_forward_to_users(db_conn, [initial_verifier.id, ])
+    possible_other_verifiers = get_possible_forward_to_users(db_conn, [verifier.id, ])
 
     send_verification_email(
         dbrow['id'],
-        initial_verifier,
+        verifier,
         dbrow['account_name'],
         dbrow['date'],
         dbrow['amount'],

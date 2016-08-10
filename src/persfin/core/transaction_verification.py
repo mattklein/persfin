@@ -9,15 +9,8 @@ from sqlalchemy import select, and_
 
 from credentials import ses_smtp
 from persfin import EMAIL_FROM, SES_SMTP_SERVER, SES_SMTP_PORT, VERIFICATION_POST_URL
-from persfin.db import engine, transaction_tbl, user_tbl, verification_attempt_tbl
-
-
-def get_initial_verifier(db_conn):
-    # The user who will be the initial verifier for this transaction -- for now, always me
-    s = select(['id', 'name', 'email']).select_from(user_tbl).where(user_tbl.c.name == 'Matt')
-    rs = db_conn.execute(s)
-    assert rs.rowcount == 1
-    return rs.fetchone()
+from persfin.core import get_user_by_id
+from persfin.db import engine, transaction_tbl, user_tbl, verification_attempt_tbl, account_tbl
 
 
 def get_possible_attributed_to_users(db_conn):
@@ -34,18 +27,17 @@ def get_possible_forward_to_users(db_conn, excluded_user_ids):
     return db_conn.execute(s).fetchall()
 
 
-def derive_and_store_verification_attempt(db_conn, new_transaction_id):
+def derive_and_store_verification_attempt(db_conn, transaction_id, verifier_id):
 
     logging.info('Deriving and storing verification attempt')
 
-    initial_verifier = get_initial_verifier(db_conn)
     possible_attributed_tos = get_possible_attributed_to_users(db_conn)
-    possible_other_verifiers = get_possible_forward_to_users(db_conn, [initial_verifier.id, ])
+    possible_other_verifiers = get_possible_forward_to_users(db_conn, [verifier_id, ])
 
     # Create the verification attempt in the DB
     i = verification_attempt_tbl.insert().values({
-        'transaction_id': new_transaction_id,
-        'asked_of': initial_verifier.id,
+        'transaction_id': transaction_id,
+        'asked_of': verifier_id,
         'did_verify': None,
         'attempt_sent': datetime.utcnow(),
     })
@@ -53,7 +45,6 @@ def derive_and_store_verification_attempt(db_conn, new_transaction_id):
     verif_attempt_id = r.inserted_primary_key[0]
 
     return {'verif_attempt_id': verif_attempt_id,
-            'initial_verifier': initial_verifier,
             'possible_attributed_tos': possible_attributed_tos,
             'possible_other_verifiers': possible_other_verifiers}
 
@@ -96,17 +87,17 @@ def send_verification_email(verif_attempt_id, verifier, account_name, date, amou
 
 def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_to_id):
 
-    # TODO what if it's already verified, and this is a non-verification?  disallow it, or take off the verification attributes?
-    # what if it's already verified, and this is a verification?
-    # TODO what if it's been forwarded to somebody else?  and a verification/non-verification comes through?
-    # TODO implement the forward-to logic
+    # TODO edge cases:
+    #   - what if it's already verified, and this is a non-verification?  disallow it, or take off the verification attributes?
+    #   - what if it's already verified, and this is a verification?
+    #   - what if it's been forwarded to somebody else?  and a verification/non-verification comes through?
 
     assert isinstance(verif_attempt_id, int)
     assert isinstance(did_verify, bool)
     assert isinstance(forward_to_id, int)
-    assert isinstance(attributed_to_id, int)
+    assert isinstance(attributed_to_id, int) or attributed_to_id is None
 
-    logging.info('Processing verification %d: did_verify %s, forward_to_id %d, attributed_to_id %d',
+    logging.info('Processing verification %s: did_verify %s, forward_to_id %s, attributed_to_id %s',
         verif_attempt_id, did_verify, forward_to_id, attributed_to_id)
 
     db_conn = engine.connect()
@@ -115,12 +106,16 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
     s = select([verification_attempt_tbl.c.transaction_id,
                 verification_attempt_tbl.c.asked_of,
                 verification_attempt_tbl.c.did_verify,
-                verification_attempt_tbl.c.attempt_replied_to]) \
-            .select_from(verification_attempt_tbl) \
+                verification_attempt_tbl.c.attempt_replied_to,
+                transaction_tbl.c.date.label('transaction_date'),
+                transaction_tbl.c.amount,
+                transaction_tbl.c.merchant,
+                account_tbl.c.name.label('account_name')]) \
+            .select_from(verification_attempt_tbl.join(transaction_tbl).join(account_tbl)) \
             .where(verification_attempt_tbl.c.id == verif_attempt_id)
     rs = db_conn.execute(s)
     assert rs.rowcount == 1
-    row = rs.fetchone()
+    existing_db_rec = rs.fetchone()
 
     now = datetime.utcnow()
     u = verification_attempt_tbl.update() \
@@ -130,13 +125,25 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
     db_conn.execute(u)
 
     if did_verify:
-        u = transaction_tbl.update().where(transaction_tbl.c.id == row['transaction_id']).values({
+        u = transaction_tbl.update().where(transaction_tbl.c.id == existing_db_rec['transaction_id']).values({
             'is_verified': did_verify,
             'verified_date': now,
-            'verified_by': row['asked_of'],
+            'verified_by': existing_db_rec['asked_of'],
             'attributed_to': attributed_to_id,
         })
         db_conn.execute(u)
+
+    else:
+        verification_dict = derive_and_store_verification_attempt(db_conn, existing_db_rec['transaction_id'], forward_to_id)
+        send_verification_email(
+            verification_dict['verif_attempt_id'],
+            get_user_by_id(db_conn, forward_to_id),
+            existing_db_rec['account_name'],
+            existing_db_rec['transaction_date'],
+            existing_db_rec['amount'],
+            existing_db_rec['merchant'],
+            verification_dict['possible_attributed_tos'],
+            verification_dict['possible_other_verifiers'])
 
     db_trans.commit()
 
