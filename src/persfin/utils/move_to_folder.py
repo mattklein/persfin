@@ -1,3 +1,5 @@
+import sys
+
 import boto
 
 from credentials import s3_full
@@ -13,4 +15,8 @@ def move_to_folder(message_id, old_folder_name, new_folder_name):
 
 
 if __name__ == '__main__':
-    move_to_folder('2nufdqqtptvbmi5uf9vj84p6ss36pmql0f054r01', 'failed', 'should-not-process')
+    if len(sys.argv) != 4:
+        print 'Usage: %s message_id from_folder to_folder' % sys.argv[0]
+        print 'E.g.:  %s bms9ienlmp6q9p2952o6up34kd12g9su34oa5701 failed should-not-process' % sys.argv[0]
+        sys.exit(1)
+    move_to_folder(sys.argv[1], sys.argv[2], sys.argv[3])
