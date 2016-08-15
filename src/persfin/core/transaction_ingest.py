@@ -13,6 +13,43 @@ from persfin.core.transaction_verification import derive_and_store_verification_
 from persfin.db import engine, transaction_tbl
 
 
+def _parse_for_merchant(text):
+    try:
+        merchant_raw = re.search(r'^Merchant: (.*)\r\n', text, flags=re.MULTILINE).groups()[0]
+    except AttributeError:
+        logging.info("Couldn't parse merchant from text:\n%s", text)
+        raise
+    merchant_parsed = merchant_raw.upper().strip()
+    return merchant_raw, merchant_parsed
+
+
+def _parse_for_amount(text):
+    try:
+        amount_raw = re.search(r'^Amount: (.*)\r\n', text, flags=re.MULTILINE).groups()[0]
+        is_credit = False
+    except AttributeError:
+        try:
+            amount_raw = re.search(r'^Amount Credited: (.*)\r\n', text, flags=re.MULTILINE).groups()[0]
+        except AttributeError:
+            logging.info("Couldn't parse amount from text:\n%s", text)
+            raise
+        is_credit = True
+    amount_parsed = Decimal(amount_raw[1:]) if amount_raw[0] == '$' else Decimal(amount_raw)
+    if is_credit:
+        amount_parsed *= -1
+    return amount_raw, amount_parsed
+
+
+def _parse_for_date(text):
+    try:
+        date_raw = re.search(r'^(?:Date|Posting Date): (.*)\r\n', text, flags=re.MULTILINE).groups()[0]
+    except AttributeError:
+        logging.info("Couldn't parse date from text:\n%s", text)
+        raise
+    date_parsed = datetime.strptime(date_raw, '%B %d, %Y').date()
+    return date_raw, date_parsed
+
+
 def _fetch_email_from_s3_and_parse(s3_obj):
 
     logging.info('Parsing email message for %s', s3_obj.key)
@@ -27,17 +64,9 @@ def _fetch_email_from_s3_and_parse(s3_obj):
 
     assert text_payload is not None
 
-    try:
-        merchant_raw = re.search(r'^Merchant: (.*)\r\n', text_payload, flags=re.MULTILINE).groups()[0]
-        amount_raw = re.search(r'^Amount: (.*)\r\n', text_payload, flags=re.MULTILINE).groups()[0]
-        date_raw = re.search(r'^Date: (.*)\r\n', text_payload, flags=re.MULTILINE).groups()[0]
-    except AttributeError:
-        logging.info("Couldn't parse merchant/amount/date for email with text payload:\n%s", text_payload)
-        raise
-
-    merchant_parsed = merchant_raw.upper().strip()
-    amount_parsed = Decimal(amount_raw[1:]) if amount_raw[0] == '$' else Decimal(amount_raw)
-    date_parsed = datetime.strptime(date_raw, '%B %d, %Y').date()
+    merchant_raw, merchant_parsed = _parse_for_merchant(text_payload)
+    amount_raw, amount_parsed = _parse_for_amount(text_payload)
+    date_raw, date_parsed = _parse_for_date(text_payload)
 
     logging.info('Raw value -> Parsed value')
     logging.info('"%s" -> "%s"', merchant_raw, merchant_parsed)
