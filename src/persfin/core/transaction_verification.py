@@ -125,12 +125,12 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
     db_conn.execute(u)
 
     if did_verify:
-        u = transaction_tbl.update().where(transaction_tbl.c.id == existing_db_rec['transaction_id']).values({
-            'is_verified': did_verify,
-            'verified_date': now,
-            'verified_by': existing_db_rec['asked_of'],
-            'attributed_to': attributed_to_id,
-        })
+        u = transaction_tbl.update() \
+                .where(transaction_tbl.c.id == existing_db_rec['transaction_id']) \
+                .values({'is_verified': did_verify,
+                         'verified_date': now,
+                         'verified_by': existing_db_rec['asked_of'],
+                         'attributed_to': attributed_to_id})
         db_conn.execute(u)
 
     else:
