@@ -37,7 +37,10 @@
     {% endfor %}
 </select>
 -->
-<p><strong>You are: </strong>{{ verifier.name }}</p>
+<p><strong>You are: </strong>{{ verifier.name }}
+{% if superuser is sameas true %}
+<font color="red"> (superuser)</font></p>
+{% endif %}
 <p><input type="submit" value="Submit"/></p>
 </form>
 </body>

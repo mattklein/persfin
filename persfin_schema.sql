@@ -30,7 +30,8 @@ CREATE TABLE persfin_user (
     id SERIAL NOT NULL PRIMARY KEY,
     name TEXT UNIQUE,
     email TEXT,
-    is_verifier BOOLEAN NOT NULL
+    is_verifier BOOLEAN NOT NULL,
+    is_superuser BOOLEAN NOT NULL
 );
 
 INSERT INTO persfin_user

@@ -70,6 +70,7 @@ def send_verification_email(verif_attempt_id, verifier, account_name, date, amou
         'possible_attributed_tos': possible_attributed_tos,
         'possible_other_verifiers': possible_other_verifiers,
         'default_attributed_to': verifier,
+        'superuser': verifier.is_superuser,
     })
 
     msg = MIMEMultipart('alternative')
