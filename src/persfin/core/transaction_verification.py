@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import logging
@@ -86,7 +87,7 @@ def send_verification_email(verif_attempt_id, verifier, account_name, date, amou
     server_ssl.quit()
 
 
-def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_to_id):
+def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_to_id, correcting_amount, corrected_amount):
 
     # TODO edge cases:
     #   - what if it's already verified, and this is a non-verification?  disallow it, or take off the verification attributes?
@@ -97,6 +98,12 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
     assert isinstance(did_verify, bool)
     assert isinstance(forward_to_id, int)
     assert isinstance(attributed_to_id, int) or attributed_to_id is None
+    assert isinstance(correcting_amount, bool)
+    assert isinstance(corrected_amount, Decimal) or corrected_amount is None
+    if not correcting_amount:
+        corrected_amount = None
+    if corrected_amount is not None:
+        corrected_amount = round(corrected_amount, 2)
 
     logging.info('Processing verification %s: did_verify %s, forward_to_id %s, attributed_to_id %s',
         verif_attempt_id, did_verify, forward_to_id, attributed_to_id)
@@ -131,7 +138,8 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
                 .values({'is_verified': did_verify,
                          'verified_date': now,
                          'verified_by': existing_db_rec['asked_of'],
-                         'attributed_to': attributed_to_id})
+                         'attributed_to': attributed_to_id,
+                         'amount_corrected': corrected_amount})
         db_conn.execute(u)
 
     else:

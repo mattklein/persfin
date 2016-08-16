@@ -1,3 +1,4 @@
+from decimal import Decimal
 import logging
 
 from persfin.core.transaction_verification import verify_transaction
@@ -9,27 +10,27 @@ def lambda_handler(event, context):
     logging.debug('Received event:\n%s', event)
 
     try:
-        # This handles the case where we're receiving an event via a POST request (which I'm not currently
+        # Handles the case where we're receiving an event via a GET request
+        parm_container = event['params']['querystring']
+    except IndexError:
+        # Handles the case where we're receiving an event via a POST request (which I'm not currently
         # using -- see background/explanation in transaction_verification.html)
-        verif_attempt_id = int(event['verif-attempt-id'])
-        verified = event['verified'] == 'Yes'
-        forward_to = int(event['forward-to'])
-        attributed_to = event.get('attributed-to')
-        if attributed_to is not None:
-            attributed_to = int(attributed_to)
-    except KeyError:
-        try:
-            # This handles the case where we're receiving an event via a GET request
-            verif_attempt_id = int(event['params']['querystring']['verif-attempt-id'])
-            verified = event['params']['querystring']['verified'] == 'Yes'
-            forward_to = int(event['params']['querystring']['forward-to'])
-            attributed_to = event['params']['querystring'].get('attributed-to')
-            if attributed_to is not None:
-                attributed_to = int(attributed_to)
-        except KeyError:
-            logging.error("Couldn't get parameters from event:\n%s", event)
-            raise
+        parm_container = event
 
-    verify_transaction(verif_attempt_id, verified, forward_to, attributed_to)
+    verif_attempt_id = int(parm_container['verif-attempt-id'])
+    verified = parm_container['verified'] in ('Yes', 'Yes amount correction')
+    forward_to = int(parm_container['forward-to'])
+    attributed_to = parm_container.get('attributed-to')
+    if attributed_to is not None:
+        attributed_to = int(attributed_to)
+    correcting_amount = parm_container['verified'] == 'Yes amount correction'
+    corrected_amount = parm_container['corrected-amount']
+    if corrected_amount is not None:
+        if corrected_amount.startswith('$'):
+            corrected_amount = corrected_amount[1:]
+        corrected_amount = Decimal(corrected_amount)
+
+    verify_transaction(verif_attempt_id, verified, forward_to, attributed_to, correcting_amount,
+        corrected_amount)
 
     return "OK"

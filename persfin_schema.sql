@@ -16,6 +16,7 @@ CREATE TABLE transaction (
     merchant VARCHAR(200),
     date DATE,
     amount NUMERIC,
+    amount_corrected NUMERIC,
     email_message_id TEXT,
     source TEXT,
     created_date TIMESTAMP WITH TIME ZONE,
