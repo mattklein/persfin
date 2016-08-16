@@ -19,7 +19,7 @@ CREATE TABLE transaction (
     email_message_id TEXT,
     source TEXT,
     created_date TIMESTAMP WITH TIME ZONE,
-    is_verified BOOLEAN,
+    is_verified BOOLEAN NOT NULL,
     verified_by INTEGER REFERENCES persfin_user(id),
     verified_date TIMESTAMP WITH TIME ZONE,
     is_cleared BOOLEAN,
