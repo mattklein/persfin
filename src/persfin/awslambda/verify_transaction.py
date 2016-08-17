@@ -26,14 +26,14 @@ def lambda_handler(event, context):
         attributed_to = int(attributed_to)
 
     correcting_amount = parm_container['verified'] == 'Yes amount correction'
-    corrected_amount = parm_container['corrected-amount']
+    corrected_amount = parm_container.get('corrected-amount')
     if corrected_amount is not None:
         if corrected_amount.startswith('$'):
             corrected_amount = corrected_amount[1:]
         corrected_amount = Decimal(corrected_amount)
 
     correcting_verifier = parm_container['verified'] == 'Yes verifier correction'
-    corrected_verifier = parm_container['corrected-verifier']
+    corrected_verifier = parm_container.get('corrected-verifier')
     if corrected_verifier is not None:
         corrected_verifier = int(corrected_verifier)
 
