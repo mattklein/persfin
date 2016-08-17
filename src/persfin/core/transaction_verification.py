@@ -87,7 +87,8 @@ def send_verification_email(verif_attempt_id, verifier, account_name, date, amou
     server_ssl.quit()
 
 
-def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_to_id, correcting_amount, corrected_amount):
+def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_to_id,
+    correcting_amount, corrected_amount, correcting_verifier, corrected_verifier_id):
 
     # TODO edge cases:
     #   - what if it's already verified, and this is a non-verification?  disallow it, or take off the verification attributes?
@@ -104,9 +105,13 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
         corrected_amount = None
     if corrected_amount is not None:
         corrected_amount = round(corrected_amount, 2)
+    assert isinstance(correcting_verifier, bool)
+    assert isinstance(corrected_verifier_id, int) or corrected_verifier_id is None
 
-    logging.info('Processing verification %s: did_verify %s, forward_to_id %s, attributed_to_id %s',
-        verif_attempt_id, did_verify, forward_to_id, attributed_to_id)
+    logging.info('Processing verification %s: did_verify %s, forward_to_id %s, attributed_to_id %s, '
+        'correcting_amount %s, corrected_amount %s, correcting_verifier %s, corrected_verifier_id %s',
+        verif_attempt_id, did_verify, forward_to_id, attributed_to_id, correcting_amount,
+        corrected_amount, correcting_verifier, corrected_verifier_id)
 
     db_conn = engine.connect()
     db_trans = db_conn.begin()
@@ -133,20 +138,28 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
     db_conn.execute(u)
 
     if did_verify:
+        if correcting_verifier:
+            verifier_id = corrected_verifier_id
+        else:
+            verifier_id = existing_db_rec['asked_of']
+
         if corrected_amount == existing_db_rec['amount']:
             # They didn't actually make a correction
             corrected_amount = None
+
         u = transaction_tbl.update() \
                 .where(transaction_tbl.c.id == existing_db_rec['transaction_id']) \
                 .values({'is_verified': did_verify,
                          'verified_date': now,
-                         'verified_by': existing_db_rec['asked_of'],
+                         'verified_by': verifier_id,
                          'attributed_to': attributed_to_id,
                          'amount_corrected': corrected_amount})
+
         db_conn.execute(u)
 
     else:
         verification_dict = derive_and_store_verification_attempt(db_conn, existing_db_rec['transaction_id'], forward_to_id)
+
         send_verification_email(
             verification_dict['verif_attempt_id'],
             get_user_by_id(db_conn, forward_to_id),

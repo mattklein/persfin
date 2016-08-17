@@ -18,11 +18,13 @@ def lambda_handler(event, context):
         parm_container = event
 
     verif_attempt_id = int(parm_container['verif-attempt-id'])
-    verified = parm_container['verified'] in ('Yes', 'Yes amount correction')
+    verified = parm_container['verified'] in ('Yes', 'Yes amount correction', 'Yes verifier correction')
+
     forward_to = int(parm_container['forward-to'])
     attributed_to = parm_container.get('attributed-to')
     if attributed_to is not None:
         attributed_to = int(attributed_to)
+
     correcting_amount = parm_container['verified'] == 'Yes amount correction'
     corrected_amount = parm_container['corrected-amount']
     if corrected_amount is not None:
@@ -30,7 +32,12 @@ def lambda_handler(event, context):
             corrected_amount = corrected_amount[1:]
         corrected_amount = Decimal(corrected_amount)
 
+    correcting_verifier = parm_container['verified'] == 'Yes verifier correction'
+    corrected_verifier = parm_container['corrected-verifier']
+    if corrected_verifier is not None:
+        corrected_verifier = int(corrected_verifier)
+
     verify_transaction(verif_attempt_id, verified, forward_to, attributed_to, correcting_amount,
-        corrected_amount)
+        corrected_amount, correcting_verifier, corrected_verifier)
 
     return "OK"

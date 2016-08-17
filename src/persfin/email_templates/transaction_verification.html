@@ -23,6 +23,15 @@
 <p><label><input type="radio" name="verified" value="Yes" checked="checked"/>Yes</label></p>
 <p><label><input type="radio" name="verified" value="Yes amount correction"/>Yes, but correct it to: </label>
 <input type="text" name="corrected-amount" size="10" value="{{ amount }}"/></p>
+{% if superuser is sameas true %}
+<p><label><input type="radio" name="verified" value="Yes verifier correction"/>Yes, but as this user: </label>
+<select size=1 name="corrected-verifier">
+    <option value="0" selected="selected"/>
+    {% for user in possible_other_verifiers %}
+    <option value="{{ user.id }}">{{ user.name }}</option>
+    {% endfor %}
+</select></p>
+{% endif %}
 <p><label><input type="radio" name="verified" value="No"/>No, forward it to:</label>
 <select size=1 name="forward-to">
     <option value="0" selected="selected"/>
