@@ -1,5 +1,6 @@
 import logging
 
+from persfin.core import send_error_email
 from persfin.core.transaction_ingest import process_email_msg_in_s3
 
 
@@ -8,11 +9,18 @@ def lambda_handler(event, context):
     logging.getLogger().setLevel(logging.INFO)
     logging.debug('Received event:\n%s', event)
     try:
-        message_id = event['Records'][0]['ses']['mail']['messageId']
-    except Exception as e:
-        raise Exception("Couldn't get message ID from event:\n%s\n%s" % (event, e))
+        try:
+            message_id = event['Records'][0]['ses']['mail']['messageId']
+        except Exception as e:
+            raise Exception("Couldn't get message ID from event:\n%s\n%s" % (event, e))
 
-    process_email_msg_in_s3('unprocessed', message_id)
+        process_email_msg_in_s3('unprocessed', message_id)
+
+    except:
+        send_error_email(
+            subject='Error ingesting email',
+            body='Unable to ingest the email received with message ID %s' % message_id)
+        raise
 
     # TODO problem: if the function fails, Lambda will automatically retry it (twice, apparently)
     # I'll want to avoid this behavior if I've moved the file to the "failed" folder (the retry will fail; won't find the file in "unprocessed")
