@@ -127,7 +127,7 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
             .select_from(verification_attempt_tbl.join(transaction_tbl).join(account_tbl)) \
             .where(verification_attempt_tbl.c.id == verif_attempt_id)
     rs = db_conn.execute(s)
-    assert rs.rowcount == 1
+    assert rs.rowcount == 1, '%s row(s) found for verif_attempt_id %s' % (rs.rowcount, verif_attempt_id)
     existing_db_rec = rs.fetchone()
 
     now = datetime.utcnow()
