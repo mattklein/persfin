@@ -136,11 +136,11 @@ def process_email_msg_in_s3(source_folder, message_id):
             verification_dict['possible_attributed_tos'],
             verification_dict['possible_other_verifiers'])
 
+        db_trans.commit()
+
         logging.info('Moving S3 file into "processed" folder')
         s3_obj.copy(S3_BUCKET_NAME, 'processed/%s' % message_id, metadata={'Content-Type': 'text/plain'})
         s3_obj.delete()
-
-        db_trans.commit()
 
     except Exception:
         if s3_obj:
