@@ -6,5 +6,5 @@ DBUSER = 'postgres'
 EMAIL_FROM = 'persfin@mantilklein.us'
 SES_SMTP_SERVER = 'email-smtp.us-east-1.amazonaws.com'
 SES_SMTP_PORT = 465
-VERIFICATION_POST_URL = 'https://api.mantilklein.us/prod/transaction-verification'
+VERIFICATION_POST_URL = 'https://6q4ab38ci9.execute-api.us-east-1.amazonaws.com/prod/transaction-verification'
 OPS_EMAIL = 'mpklein+persfinops@gmail.com'
