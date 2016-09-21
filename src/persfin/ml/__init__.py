@@ -6,7 +6,7 @@ def standardize(val):
     if val is None:
         return None
     if isinstance(val, int):
-        return val
+        return str(val)
     if isinstance(val, str) or isinstance(val, unicode):
         return val.strip().lower()
     if isinstance(val, datetime):
@@ -14,7 +14,7 @@ def standardize(val):
     if isinstance(val, date):
         return val.strftime('%Y-%m-%d')
     if isinstance(val, Decimal) or isinstance(val, float):
-        return round(val, 2)
+        return str(round(val, 2))
     raise Exception('Couldn\'t standardize "%s" (type %s)' % (val, type(val)))
 
 
