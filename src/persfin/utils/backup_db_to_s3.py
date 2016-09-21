@@ -16,7 +16,6 @@ def main():
     subprocess.check_call(
         'pg_dumpall -U postgres -h localhost -p 5432 | gzip -c > %s' % output_fullpath,
         shell=True)
-
     s3 = boto3.client('s3',
                       aws_access_key_id=s3full.ACCESS_KEY_ID,
                       aws_secret_access_key=s3full.SECRET_ACCESS_KEY)
@@ -24,7 +23,6 @@ def main():
                   Key=output_filename,
                   Body=open(output_fullpath, 'rb'),
                   ContentType='application/gzip')
-
     os.remove(output_fullpath)
 
 
