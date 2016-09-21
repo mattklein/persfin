@@ -6,11 +6,12 @@ import re
 
 import boto
 
-from credentials import s3_full
-from persfin import EMAIL_BUCKET_NAME
+from credentials import s3_full, ml_full
+from persfin import EMAIL_BUCKET_NAME, ML_BUCKET_NAME, ML_MOST_RECENT_TRANSACTIONS_FILENAME
 from persfin.core import get_account_for_transaction, get_user_by_username
 from persfin.core.transaction_verification import derive_and_store_verification_attempt, send_verification_email
 from persfin.db import engine, transaction_tbl
+from persfin import ml
 
 
 def _parse_for_merchant(text):
@@ -78,7 +79,29 @@ def _fetch_email_from_s3_and_parse(s3_obj):
             'date_parsed': date_parsed}
 
 
-def _store_transaction_into_db(db_conn, merchant, date, amount, message_id, account):
+def _perform_ml_prediction(ml_conn, ml_model_id, merchant, date_, amount, account_name, now):
+    ml_model = ml_conn.get_ml_model(ml_model_id)
+    python_weekday, weekend = ml.weekday_fields(date_)
+    record = {
+        'id': -1,  # Fine I think
+        'merchant': merchant,
+        'date': date_,
+        'day_of_week': python_weekday,
+        'weekend': weekend,
+        'amount': amount,
+        'created_date': now,
+        'account': account_name,
+    }
+    # "Standardize" each of the values in the dict
+    record = dict([(k, ml.standardize(v)) for k, v in record.items()])
+    return ml_conn.predict(
+        ml_model_id=ml_model_id,
+        predict_endpoint=ml_model['EndpointInfo']['EndpointUrl'],
+        record=record)
+
+
+def _store_transaction_into_db(db_conn, merchant, date, amount, message_id, account, now, ml_model_id,
+    verifier_predicted_result, verifier_predicted_user_id):
 
     logging.info('Storing transaction into DB')
 
@@ -89,9 +112,13 @@ def _store_transaction_into_db(db_conn, merchant, date, amount, message_id, acco
         'amount': amount,
         'email_message_id': message_id,
         'source': 'bank_email_through_persfin',
-        'created_date': datetime.utcnow(),
+        'created_date': now,
         'is_verified': False,
-        'is_cleared': False
+        'is_cleared': False,
+        'verifier_predicted_date': now,
+        'verifier_predicted_model_id': ml_model_id,
+        'verifier_predicted_result': verifier_predicted_result,
+        'verifier_predicted_user_id': verifier_predicted_user_id,
     })
     r = db_conn.execute(i)
     return r.inserted_primary_key[0]
@@ -114,21 +141,43 @@ def process_email_msg_in_s3(source_folder, message_id):
         db_trans = db_conn.begin()
 
         account = get_account_for_transaction(db_conn)
+        now = datetime.utcnow()
 
-        new_trans_id = _store_transaction_into_db(db_conn,
-                                                  parsed_email_dict['merchant_parsed'],
-                                                  parsed_email_dict['date_parsed'],
-                                                  parsed_email_dict['amount_parsed'],
-                                                  message_id,
-                                                  account)
+        logging.info('Calling ML to predict verifier')
+        ml_bucket = s3_conn.get_bucket(ML_BUCKET_NAME)
+        transactions_filename = ml_bucket.get_key(ML_MOST_RECENT_TRANSACTIONS_FILENAME).get_contents_as_string()
+        ml_conn = boto.connect_machinelearning(ml_full.ACCESS_KEY_ID, ml_full.SECRET_ACCESS_KEY)
+        prediction_dict = _perform_ml_prediction(
+            ml_conn,
+            transactions_filename,
+            parsed_email_dict['merchant_parsed'],
+            parsed_email_dict['date_parsed'],
+            parsed_email_dict['amount_parsed'],
+            account.name,
+            now)
 
-        # The user who will be the initial verifier for this transaction -- for now, always me
-        initial_verifier = get_user_by_username(db_conn, 'Matt')
-        verification_dict = derive_and_store_verification_attempt(db_conn, new_trans_id, initial_verifier.id)
+        verifier_predicted_user = get_user_by_username(db_conn, prediction_dict['Prediction']['predictedLabel'])
+        verifier_predicted_scores = prediction_dict['Prediction']['predictedScores']
+
+        logging.info('Predicted verifier is "%s" (%s)', verifier_predicted_user.name, verifier_predicted_scores)
+
+        new_trans_id = _store_transaction_into_db(
+            db_conn,
+            parsed_email_dict['merchant_parsed'],
+            parsed_email_dict['date_parsed'],
+            parsed_email_dict['amount_parsed'],
+            message_id,
+            account,
+            now,
+            transactions_filename,
+            verifier_predicted_scores,
+            verifier_predicted_user.id)
+
+        verification_dict = derive_and_store_verification_attempt(db_conn, new_trans_id, verifier_predicted_user.id)
 
         send_verification_email(
             verification_dict['verif_attempt_id'],
-            initial_verifier,
+            verifier_predicted_user,
             account.name,
             parsed_email_dict['date_parsed'],
             parsed_email_dict['amount_parsed'],
