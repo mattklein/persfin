@@ -1,8 +1,8 @@
-import logging
 import sys
 
 from sqlalchemy import select
 
+from persfin import configure_logging
 from persfin.core import get_user_by_id
 from persfin.core.transaction_verification import send_verification_email, get_possible_attributed_to_users, get_possible_forward_to_users
 from persfin.db import engine, verification_attempt_tbl, transaction_tbl, account_tbl
@@ -47,11 +47,6 @@ if __name__ == '__main__':
     if len(sys.argv) < 2:
         print 'Usage: %s <verif_attempt_ids>' % sys.argv[0]
         sys.exit(1)
-    logging.getLogger().setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setFormatter(formatter)
-    logging.getLogger().addHandler(stream_handler)
+    configure_logging()
     verif_attempt_ids = [int(id_) for id_ in sys.argv[1:]]
     resend_verification_email(verif_attempt_ids)

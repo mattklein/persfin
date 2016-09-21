@@ -2,6 +2,7 @@ from datetime import datetime
 import logging
 import sys
 
+from persfin import configure_logging
 from persfin.core import get_user_by_username
 from persfin.db import engine, transaction_tbl, verification_attempt_tbl
 
@@ -35,13 +36,7 @@ if __name__ == '__main__':
     if len(sys.argv) < 3:
         print 'Usage: %s <verifier_username> <transaction_ids>' % sys.argv[0]
         sys.exit(1)
-    logging.getLogger().setLevel(logging.INFO)
-    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s',
-                                  datefmt='%Y-%m-%d %H:%M:%S')
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setFormatter(formatter)
-    logging.getLogger().addHandler(stream_handler)
-
+    configure_logging()
     verifier_name = sys.argv[1]
     transaction_ids = [int(tid) for tid in sys.argv[2:]]
     db_conn = engine.connect()
