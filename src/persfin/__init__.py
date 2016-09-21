@@ -2,6 +2,7 @@ import logging
 import sys
 
 EMAIL_BUCKET_NAME = 'us-mantilklein-pf-emails'
+DB_BACKUP_BUCKET_NAME = 'us-mantilklein-db-backups'
 ML_BUCKET_NAME = 'us-mantilklein-ml-transactions'
 ML_MOST_RECENT_TRANSACTIONS_FILENAME = '00_most_recent_filename.txt'
 DBHOST = 'persfin-db.mantilklein.us'
