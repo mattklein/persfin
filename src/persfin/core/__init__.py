@@ -10,14 +10,18 @@ from persfin.db import user_tbl, account_tbl
 
 
 def get_user_by_username(db_conn, username):
-    s = select(['id', 'name', 'email', 'is_superuser']).select_from(user_tbl).where(user_tbl.c.name == username)
+    s = select(['id', 'name', 'email', 'is_superuser']) \
+            .select_from(user_tbl) \
+            .where(user_tbl.c.name.lower() == username.lower())
     rs = db_conn.execute(s)
     assert rs.rowcount == 1
     return rs.fetchone()
 
 
 def get_user_by_id(db_conn, user_id):
-    s = select(['id', 'name', 'email', 'is_superuser']).select_from(user_tbl).where(user_tbl.c.id == user_id)
+    s = select(['id', 'name', 'email', 'is_superuser']) \
+            .select_from(user_tbl) \
+            .where(user_tbl.c.id == user_id)
     rs = db_conn.execute(s)
     assert rs.rowcount == 1
     return rs.fetchone()
