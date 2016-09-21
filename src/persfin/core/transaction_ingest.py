@@ -7,7 +7,7 @@ import re
 import boto
 
 from credentials import s3_full
-from persfin import S3_BUCKET_NAME
+from persfin import EMAIL_BUCKET_NAME
 from persfin.core import get_account_for_transaction, get_user_by_username
 from persfin.core.transaction_verification import derive_and_store_verification_attempt, send_verification_email
 from persfin.db import engine, transaction_tbl
@@ -101,9 +101,9 @@ def process_email_msg_in_s3(source_folder, message_id):
 
     assert source_folder in ('unprocessed', 'failed')
     s3_conn = boto.connect_s3(s3_full.ACCESS_KEY_ID, s3_full.SECRET_ACCESS_KEY)
-    bucket = s3_conn.get_bucket(S3_BUCKET_NAME)
+    email_bucket = s3_conn.get_bucket(EMAIL_BUCKET_NAME)
     s3_key = '%s/%s' % (source_folder, message_id)
-    s3_obj = bucket.get_key(s3_key)
+    s3_obj = email_bucket.get_key(s3_key)
     if not s3_obj:
         raise Exception('Expected S3 key not found (%s)' % s3_key)
 
@@ -139,13 +139,13 @@ def process_email_msg_in_s3(source_folder, message_id):
         db_trans.commit()
 
         logging.info('Moving S3 file into "processed" folder')
-        s3_obj.copy(S3_BUCKET_NAME, 'processed/%s' % message_id, metadata={'Content-Type': 'text/plain'})
+        s3_obj.copy(EMAIL_BUCKET_NAME, 'processed/%s' % message_id, metadata={'Content-Type': 'text/plain'})
         s3_obj.delete()
 
     except Exception:
         if s3_obj:
             if source_folder != 'failed':  # If it's already in failed, just leave it there!  Don't delete it!
                 logging.info('Moving S3 file into "failed" folder')
-                s3_obj.copy(S3_BUCKET_NAME, 'failed/%s' % message_id, metadata={'Content-Type': 'text/plain'})
+                s3_obj.copy(EMAIL_BUCKET_NAME, 'failed/%s' % message_id, metadata={'Content-Type': 'text/plain'})
                 s3_obj.delete()
         raise
