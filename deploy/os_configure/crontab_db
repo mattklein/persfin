@@ -1,0 +1,6 @@
+MAILTO=mpklein+persfinops@gmail.com
+
+PYTHONPATH=/deploy/persfin/src
+
+# m h  dom mon dow   command
+0 4 * * * . /deploy/pythonenvs/persfinenv/bin/activate python /deploy/persfin/src/persfin/utils/backup_db_to_s3.py
