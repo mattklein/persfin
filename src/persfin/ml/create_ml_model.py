@@ -89,7 +89,7 @@ def create_ml_model():
     infile = open(temp_fname, 'rb')
     s3_conn = boto.connect_s3(s3_full.ACCESS_KEY_ID, s3_full.SECRET_ACCESS_KEY)
     bucket = s3_conn.get_bucket(ML_BUCKET_NAME)
-    s3_key = bucket.new_key('%s.csv') % model_name
+    s3_key = bucket.new_key('%s.csv' % model_name)
     s3_key.metadata = {'Content-Type': 'text/csv'}
     s3_key.set_contents_from_file(infile)
 
@@ -103,7 +103,10 @@ def create_ml_model():
     logging.info('Creating ML datasource from the CSV')
 
     ml_conn = boto.connect_machinelearning(ml_full.ACCESS_KEY_ID, ml_full.SECRET_ACCESS_KEY)
-    ml_conn.delete_data_source(data_source_id=model_name)
+    try:
+        ml_conn.delete_data_source(data_source_id=model_name)
+    except boto.machinelearning.exceptions.ResourceNotFoundException:
+        pass
 
     # Obtained by using the AWS console UI
     transactions_schema = '''
