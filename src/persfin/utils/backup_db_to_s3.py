@@ -17,8 +17,8 @@ def main():
         'pg_dumpall -U postgres -h localhost -p 5432 | gzip -c > %s' % output_fullpath,
         shell=True)
     s3 = boto3.client('s3',
-                      aws_access_key_id=s3full.ACCESS_KEY_ID,
-                      aws_secret_access_key=s3full.SECRET_ACCESS_KEY)
+                      aws_access_key_id=s3_full.ACCESS_KEY_ID,
+                      aws_secret_access_key=s3_full.SECRET_ACCESS_KEY)
     s3.put_object(Bucket=DB_BACKUP_BUCKET_NAME,
                   Key=output_filename,
                   Body=open(output_fullpath, 'rb'),
