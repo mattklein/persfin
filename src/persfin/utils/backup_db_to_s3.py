@@ -4,7 +4,7 @@ import subprocess
 
 import boto3
 
-from credentials import s3full
+from credentials import s3_full
 from persfin import DB_BACKUP_BUCKET_NAME
 
 
