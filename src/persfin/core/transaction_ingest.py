@@ -9,7 +9,7 @@ import boto
 from credentials import s3_full, ml_full
 from persfin import EMAIL_BUCKET_NAME, ML_BUCKET_NAME, ML_MOST_RECENT_TRANSACTIONS_FILENAME
 from persfin.core import get_account_for_transaction, get_user_by_username
-from persfin.core.transaction_verification import derive_and_store_verification_attempt, send_verification_email
+from persfin.core.transaction_verification import derive_and_store_verification_attempt, send_verification_email, get_verification_history_first_entry
 from persfin.db import engine, transaction_tbl
 from persfin import ml
 
@@ -175,6 +175,11 @@ def process_email_msg_in_s3(source_folder, message_id):
 
         verification_dict = derive_and_store_verification_attempt(db_conn, new_trans_id, verifier_predicted_user.id)
 
+        # A "history" with just one entry -- the system's prediction for this transaction
+        verification_history = [get_verification_history_first_entry(now,
+                                    verifier_predicted_user.name,
+                                    verifier_predicted_scores), ]
+
         send_verification_email(
             verification_dict['verif_attempt_id'],
             verifier_predicted_user,
@@ -183,7 +188,8 @@ def process_email_msg_in_s3(source_folder, message_id):
             parsed_email_dict['amount_parsed'],
             parsed_email_dict['merchant_parsed'],
             verification_dict['possible_attributed_tos'],
-            verification_dict['possible_other_verifiers'])
+            verification_dict['possible_other_verifiers'],
+            verification_history)
 
         db_trans.commit()
 

@@ -28,6 +28,55 @@ def get_possible_forward_to_users(db_conn, excluded_user_ids):
     return db_conn.execute(s).fetchall()
 
 
+def get_verification_history_first_entry(dt, predicted_user_name, predicted_scores):
+    # A single history entry -- the system's prediction for this transaction
+    comment = ', '.join(['%s: %.0f%%' % (k, v * 100)
+        for k, v in sorted(predicted_scores.items(), key=lambda x: x[1], reverse=True)])
+    return {'date': dt,
+            'who': 'System',
+            'action': 'Prediction: %s' % predicted_user_name,
+            'comment': comment}
+
+
+def get_verification_history(db_conn, transaction_id):
+    """
+    The verification history is comprised of all of the verifications of this transaction,
+    PLUS (at the beginning) the system's initial prediction as to the verifier.
+    """
+    history = []
+
+    # Get the first entry (the predicted verifier)
+    s = select([transaction_tbl.c.verifier_predicted_result,
+                transaction_tbl.c.verifier_predicted_date,
+                user_tbl.c.name.label('verifier_predicted_user_name')]) \
+            .select_from(transaction_tbl.join(user_tbl,
+                onclause=transaction_tbl.c.verifier_predicted_user_id == user_tbl.c.id)) \
+            .where(transaction_tbl.c.id == transaction_id)
+    rs = db_conn.execute(s)
+    assert rs.rowcount == 1
+    row = rs.fetchone()
+    history.append(get_verification_history_first_entry(row.verifier_predicted_date,
+                                                        row.verifier_predicted_user_name,
+                                                        row.verifier_predicted_result))
+
+    # Get the rest of the entries (the verifications that have come so far)
+    s = select([verification_attempt_tbl.c.attempt_replied_to,
+                verification_attempt_tbl.c.did_verify,
+                verification_attempt_tbl.c.comment,
+                user_tbl.c.name.label('user_name')]) \
+            .select_from(verification_attempt_tbl.join(user_tbl)) \
+            .where(verification_attempt_tbl.c.transaction_id == transaction_id) \
+            .order_by(verification_attempt_tbl.c.attempt_replied_to)
+    existing_verifications = db_conn.execute(s).fetchall()
+    for i, r in enumerate(existing_verifications[:-1]):  # We don't want the last verification attempt -- that's the one we're creating now
+        next_verifier = existing_verifications[i + 1].user_name
+        history.append({'date': r.attempt_replied_to,
+                        'who': r.user_name,
+                        'action': 'Forward to %s' % next_verifier if not r.did_verify else '???',
+                        'comment': r.comment})
+    return history
+
+
 def derive_and_store_verification_attempt(db_conn, transaction_id, verifier_id):
 
     logging.info('Deriving and storing verification attempt')
@@ -51,7 +100,7 @@ def derive_and_store_verification_attempt(db_conn, transaction_id, verifier_id):
 
 
 def send_verification_email(verif_attempt_id, verifier, account_name, date, amount, merchant,
-    possible_attributed_tos, possible_other_verifiers):
+    possible_attributed_tos, possible_other_verifiers, verification_history):
 
     logging.info('Sending verification email to %s (%s)', verifier.name, verifier.email)
 
@@ -72,6 +121,7 @@ def send_verification_email(verif_attempt_id, verifier, account_name, date, amou
         'possible_other_verifiers': possible_other_verifiers,
         'default_attributed_to': verifier,
         'superuser': verifier.is_superuser,
+        'verification_history': verification_history,
     })
 
     msg = MIMEMultipart('alternative')
@@ -117,18 +167,28 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
     db_trans = db_conn.begin()
 
     s = select([verification_attempt_tbl.c.transaction_id,
-                verification_attempt_tbl.c.asked_of,
+                verification_attempt_tbl.c.asked_of.label('verifier_id'),
+                user_tbl.c.name.label('verifier_name'),
                 verification_attempt_tbl.c.did_verify,
-                verification_attempt_tbl.c.attempt_replied_to,
                 transaction_tbl.c.date.label('transaction_date'),
                 transaction_tbl.c.amount,
                 transaction_tbl.c.merchant,
                 account_tbl.c.name.label('account_name')]) \
-            .select_from(verification_attempt_tbl.join(transaction_tbl).join(account_tbl)) \
+            .select_from(verification_attempt_tbl
+                .join(transaction_tbl)
+                .join(account_tbl)
+                .join(user_tbl, onclause=verification_attempt_tbl.c.asked_of == user_tbl.c.id)) \
             .where(verification_attempt_tbl.c.id == verif_attempt_id)
     rs = db_conn.execute(s)
     assert rs.rowcount == 1, '%s row(s) found for verif_attempt_id %s' % (rs.rowcount, verif_attempt_id)
     existing_db_rec = rs.fetchone()
+
+    logging.info('Transaction %s, verifier "%s", amount %s, date %s, merchant "%s"',
+        existing_db_rec['transaction_id'],
+        existing_db_rec['verifier_name'],
+        existing_db_rec['amount'],
+        existing_db_rec['transaction_date'],
+        existing_db_rec['merchant'])
 
     now = datetime.utcnow()
     u = verification_attempt_tbl.update() \
@@ -141,7 +201,7 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
         if correcting_verifier:
             verifier_id = corrected_verifier_id
         else:
-            verifier_id = existing_db_rec['asked_of']
+            verifier_id = existing_db_rec['verifier_id']
 
         if corrected_amount == existing_db_rec['amount']:
             # They didn't actually make a correction
@@ -159,7 +219,7 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
 
     else:
         verification_dict = derive_and_store_verification_attempt(db_conn, existing_db_rec['transaction_id'], forward_to_id)
-
+        verification_history = get_verification_history(db_conn, existing_db_rec['transaction_id'])
         send_verification_email(
             verification_dict['verif_attempt_id'],
             get_user_by_id(db_conn, forward_to_id),
@@ -168,7 +228,8 @@ def verify_transaction(verif_attempt_id, did_verify, forward_to_id, attributed_t
             existing_db_rec['amount'],
             existing_db_rec['merchant'],
             verification_dict['possible_attributed_tos'],
-            verification_dict['possible_other_verifiers'])
+            verification_dict['possible_other_verifiers'],
+            verification_history)
 
     db_trans.commit()
 

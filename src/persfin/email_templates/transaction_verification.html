@@ -11,6 +11,13 @@
 <tr><td><strong>Merchant</strong></td><td>{{ merchant }}</td></tr>
 <tr><td><strong>Amount</strong></td><td>{{ amount }}</td></tr>
 </table>
+<p>Verification Details</p>
+<table>
+<tr><td><strong>Date</strong></td><td><strong>Who</strong></td><td><strong>Action</strong></td><td><strong>Comment</strong></td></tr>
+{% for entry in verification_history %}
+<tr><td>{{ entry.date.strftime('%m/%d') }}</td><td>{{ entry.who }}</td><td>{{ entry.action }}</td><td>{{ entry.comment if entry.comment != None else '' }}</td></tr>
+{% endfor %}
+</table>
 <!-- Strangely, on iOS (using the Mail app or the Gmail app) this POST form seems to get submitted to the server a GET request?! -->
 <!-- And, when it is, we seem to lose what should be the POST body parameters - they aren't put into the GET request as query parms -->
 <!-- Seems to be the same issue documented here: -->

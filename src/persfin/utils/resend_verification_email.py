@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from persfin import configure_logging
 from persfin.core import get_user_by_id
-from persfin.core.transaction_verification import send_verification_email, get_possible_attributed_to_users, get_possible_forward_to_users
+from persfin.core.transaction_verification import send_verification_email, get_possible_attributed_to_users, get_possible_forward_to_users, get_verification_history
 from persfin.db import engine, verification_attempt_tbl, transaction_tbl, account_tbl
 
 
@@ -14,6 +14,7 @@ def resend_verification_email(verif_attempt_ids):
     for verif_attempt_id in verif_attempt_ids:
         s = select([verification_attempt_tbl.c.id,
                     verification_attempt_tbl.c.asked_of,
+                    transaction_tbl.c.id.label('transaction_id'),
                     transaction_tbl.c.date,
                     transaction_tbl.c.amount,
                     transaction_tbl.c.merchant,
@@ -31,6 +32,7 @@ def resend_verification_email(verif_attempt_ids):
         verifier = get_user_by_id(db_conn, dbrow['asked_of'])
         possible_attributed_tos = get_possible_attributed_to_users(db_conn)
         possible_other_verifiers = get_possible_forward_to_users(db_conn, [verifier.id, ])
+        verification_history = get_verification_history(db_conn, dbrow['transaction_id'])
 
         send_verification_email(
             dbrow['id'],
@@ -40,7 +42,8 @@ def resend_verification_email(verif_attempt_ids):
             dbrow['amount'],
             dbrow['merchant'],
             possible_attributed_tos,
-            possible_other_verifiers)
+            possible_other_verifiers,
+            verification_history)
 
 
 if __name__ == '__main__':
