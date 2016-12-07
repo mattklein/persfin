@@ -35,6 +35,7 @@ def _parse_for_amount(text):
             logging.info("Couldn't parse amount from text:\n%s", text)
             raise
         is_credit = True
+    amount_raw = amount_raw.replace(',', '')
     amount_parsed = Decimal(amount_raw[1:]) if amount_raw[0] == '$' else Decimal(amount_raw)
     if is_credit:
         amount_parsed *= -1
